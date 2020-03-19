@@ -2,7 +2,14 @@ package id.putraprima.retrofit.ui;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -17,6 +24,9 @@ import retrofit2.Response;
 
 public class SplashActivity extends AppCompatActivity {
     TextView lblAppName, lblAppTittle, lblAppVersion;
+    public static final String NAME_KEY="name";
+    public static final String VERSION_KEY="version";
+    private static SharedPreferences pref;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,8 +35,12 @@ public class SplashActivity extends AppCompatActivity {
         setupLayout();
         if (checkInternetConnection()) {
             checkAppVersion();
+        } else{
+            Toast.makeText(SplashActivity.this, "No Internet Connection", Toast.LENGTH_SHORT).show();
         }
         setAppInfo();
+
+
     }
 
     private void setupLayout() {
@@ -40,15 +54,24 @@ public class SplashActivity extends AppCompatActivity {
 
     private boolean checkInternetConnection() {
         //TODO : 1. Implementasikan proses pengecekan koneksi internet, berikan informasi ke user jika tidak terdapat koneksi internet
-        return true;
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 
 
     private void setAppInfo() {
         //TODO : 5. Implementasikan proses setting app info, app info pada fungsi ini diambil dari shared preferences
+        String appName = getAppName(SplashActivity.this);
+        String appVersion = getAppVersion(SplashActivity.this);
+
+        lblAppName.setText(appName);
+        lblAppVersion.setText(appVersion);
+        lblAppName.setVisibility(View.VISIBLE);
+        lblAppVersion.setVisibility(View.VISIBLE);
         //lblAppVersion dan lblAppName dimunculkan kembali dengan data dari shared preferences
-        //lblAppVersion.setVisibility(View.INVISIBLE);
-        //lblAppName.setVisibility(View.INVISIBLE);
+
     }
 
     private void checkAppVersion() {
@@ -59,14 +82,50 @@ public class SplashActivity extends AppCompatActivity {
             public void onResponse(Call<AppVersion> call, Response<AppVersion> response) {
                 Toast.makeText(SplashActivity.this, response.body().getApp(), Toast.LENGTH_SHORT).show();
                 //Todo : 2. Implementasikan Proses Simpan Data Yang didapat dari Server ke SharedPreferences
-                //Todo : 3. Implementasikan Proses Pindah Ke MainActivity Jika Proses getAppVersion() sukses
+                if(response.isSuccessful()){
+                    if (response.body()!=null){
+                        setAppName(SplashActivity.this, response.body().getApp());
+                        setAppVersion(SplashActivity.this, response.body().getVersion());
+
+                        //Todo : 3. Implementasikan Proses Pindah Ke MainActivity Jika Proses getAppVersion() sukses
+                        String appName = getAppName(SplashActivity.this);
+                        String appVersion = getAppVersion(SplashActivity.this);
+                        Intent intent = new Intent(SplashActivity.this, MainActivity.class);
+                        intent.putExtra(NAME_KEY, appName);
+                        intent.putExtra(VERSION_KEY, appVersion);
+                        startActivity(intent);
+                    }
+                }
+
+
             }
 
             @Override
             public void onFailure(Call<AppVersion> call, Throwable t) {
                 Toast.makeText(SplashActivity.this, "Gagal Koneksi Ke Server", Toast.LENGTH_SHORT).show();
                 //Todo : 4. Implementasikan Cara Notifikasi Ke user jika terjadi kegagalan koneksi ke server silahkan googling cara yang lain selain menggunakan TOAST
+                Log.e("Retrofit Get", t.toString());
             }
         });
     }
+
+    public static String getAppName(Context context) {
+        pref=PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getString(NAME_KEY, "name");
+    }
+
+    public static void setAppName(Context context, String appName) {
+        pref=PreferenceManager.getDefaultSharedPreferences(context);
+        pref.edit().putString(NAME_KEY, appName).apply();
+    }
+    public static String getAppVersion(Context context) {
+        pref=PreferenceManager.getDefaultSharedPreferences(context);
+        return pref.getString(VERSION_KEY, "0");
+    }
+
+    public static void setAppVersion(Context context, String appVer) {
+        pref=PreferenceManager.getDefaultSharedPreferences(context);
+        pref.edit().putString(VERSION_KEY, appVer).apply();
+    }
+
 }
